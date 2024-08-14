@@ -1,23 +1,15 @@
-# AOM-project
-This repository contains the analysis pipeline used for 7T fMRI for the mapping of axis of motion direction in (human) MT.
+# Bistable Motion Quartet fMRI project at 7T
+This repository contains the analysis pipeline used for 7T fMRI for the paper "In the brain of the beholder: bi-stable motion reveals mesoscopic-scale feedback modulation in V1".
 
 # Core dependences
-
-CMRR processing                                   
-
 | Package | Tested Version |                                            
 | ------------- | ------------- |                 
-| BrainVoyager  | 22.1  |                         
+| BrainVoyager  | 22.4  |
+|bvbabel | 0.1.0|
 | ITK-SNAP  | 3.6, 3.8  |
 | FSL  | 6.0.5  |
 | Segmentator | 1.6.0 |
 | ANTS  | 20.3.01 |
-
-VASO processing
-
-| Package | Tested Version |
-| ------------- | ------------- |
-| BrainVoyager  | 22.1  |
-| SPM  | 12 |
 | AFNI  | 20.3.01 |
-| LAYNII  | 2.2.1 |
+| LAYNII  | 2.5.1 |
+
