@@ -1,0 +1,3 @@
+Rename .IMA files using BrainVoyager:
+sourcedata/DICOM folder
+>File > Rename DICOM files (select folder)

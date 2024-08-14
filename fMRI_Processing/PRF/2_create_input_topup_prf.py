@@ -1,0 +1,57 @@
+
+"""
+Created on Tue Apr  5 15:28:35 2022
+    Create topup input data (nifti)
+    Only for phy00 and phy01
+@author: apizz
+
+"""
+
+import os
+import numpy as np
+import nibabel as nb
+import glob
+
+STUDY_PATH = "/mnt/d/Exp-MotionQuartet/MRI_MQ/BOLD"
+SUBJ = ["sub-10"]
+SESS = [2]
+
+for su in SUBJ:
+
+    for iterse, se in enumerate(SESS):
+        print('Working on {} {} '.format(su, se))
+        PATH_NIFTI = os.path.join(STUDY_PATH, su, 'sourcedata', 'sess-0{}'.format(se), 'NIFTI', 'func')
+        PATH_TOPUP = os.path.join(STUDY_PATH, su, 'derivatives', 'func', 'sess-0{}'.format(se), 'topup_prf')
+
+        if not os.path.exists(PATH_TOPUP):
+            os.mkdir(PATH_TOPUP)
+
+        NIFTI_AP = "{}_sess-0{}_task-pRF_acq-2depimb3_run-01.nii".format(su, se)
+        NIFTI_PA = "{}_sess-0{}_task-pRF_acq-2depimb3_PA_run-00.nii".format(su, se)
+
+        # // Load data
+        # AP
+        nii_AP = nb.load(os.path.join(PATH_NIFTI, NIFTI_AP))
+        data_AP = np.asarray(nii_AP.dataobj)
+        data_AP = data_AP[..., 0:5]
+
+        outname = os.path.join(PATH_TOPUP, "{}_sess-0{}_AP.nii.gz".format(su, se))
+        img = nb.Nifti1Image(data_AP, affine=nii_AP.affine, header=nii_AP.header)
+        nb.save(img, outname)
+
+        # PA
+        nii_PA = nb.load(os.path.join(PATH_NIFTI, NIFTI_PA))
+        data_PA = np.asarray(nii_PA.dataobj)
+        data_PA = data_PA[..., 0:5]
+
+        outname = os.path.join(PATH_TOPUP, "{}_sess-0{}_PA.nii.gz".format(su, se))
+        img = nb.Nifti1Image(data_PA, affine=nii_PA.affine, header=nii_PA.header)
+        nb.save(img, outname)
+
+        new_data = np.concatenate((data_AP, data_PA), axis=-1)
+        print(np.shape(new_data))
+
+        # // Save
+        outname = os.path.join(PATH_TOPUP, "{}_sess-0{}_updown_phase.nii.gz".format(su, se))
+        img = nb.Nifti1Image(new_data, affine=nii_AP.affine, header=nii_AP.header)
+        nb.save(img, outname)
