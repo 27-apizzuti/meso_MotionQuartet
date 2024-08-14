@@ -5,7 +5,7 @@ Initial fixation of 20s, bistable quartet (80s) + flick dots (16s) for 6 times, 
 
 <img src="ambiguous-stimulus.gif" width=200 />
 
-# Physical (unambiguous) motion quartet: 
+# Physical (unambiguous) motion quartet
 TR = 2s
 VOLUMES = 308 (10 min 20 sec)
 
