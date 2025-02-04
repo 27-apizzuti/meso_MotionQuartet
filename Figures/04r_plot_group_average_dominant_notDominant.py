@@ -1,22 +1,17 @@
-"""Compute event related averages for each ROI.
-
-Designed for the 7 T motion quartet experiment data (2024).
-"""
-
 import os
 import numpy as np
 import nibabel as nb
 import matplotlib.pyplot as plt
-from scipy.stats import sem
+from scipy.stats import spearmanr, wilcoxon
 
 
 # Conditions
 SUBJ = ['sub-01', 'sub-03', 'sub-04', 'sub-06', 'sub-07', 'sub-08', 'sub-09', 'sub-10']
-DUR_MIN = 4       # 4  3
-DUR_MAX = 100       # 100   5
+DUR_MIN = 4       # Duration minimum
+DUR_MAX = 100     # Duration maximum
 STAT = 'mean'
 ROIS = ['V1', 'hMT']
-TASK = 'phy'
+TASK = 'amb'
 COLOR_AREA = ['#7570b3', '#d95f02']
 
 # Plot preparation
@@ -30,12 +25,15 @@ if not os.path.exists(OUTDIR):
 fig, axes = plt.subplots(1, 2, figsize=(1920*2/DPI, 1200*2/DPI), dpi=DPI)
 # =============================================================================
 
+# Store values for statistical comparison
+dominant_data = {'V1': [], 'hMT': []}
+not_dominant_data = {'V1': [], 'hMT': []}
+
 for itro, ro in enumerate(ROIS):
 
     # Initialize output structure
     hor_hor = np.zeros([len(SUBJ), DUR_MAX])
     ver_hor = np.zeros([len(SUBJ), DUR_MAX])
-
     hor_ver = np.zeros([len(SUBJ), DUR_MAX])
     ver_ver = np.zeros([len(SUBJ), DUR_MAX])
 
@@ -43,7 +41,6 @@ for itro, ro in enumerate(ROIS):
 
     for it, su in enumerate(SUBJ):
         NII_HOR = "/mnt/d/Exp-MotionQuartet/MRI_MQ/BOLD/{}/derivatives/func/Stats/carpet-{}/ROI-wise_carpet/{}_VOICarpet_normalized-t0_ERAperROI_dur_{}_{}_cond-2_{}.nii.gz".format(su, TASK, su, DUR_MIN, DUR_MAX, STAT)
-
         NII_VER = "/mnt/d/Exp-MotionQuartet/MRI_MQ/BOLD/{}/derivatives/func/Stats/carpet-{}/ROI-wise_carpet/{}_VOICarpet_normalized-t0_ERAperROI_dur_{}_{}_cond-3_{}.nii.gz".format(su, TASK, su, DUR_MIN, DUR_MAX, STAT)
 
         print('Plot ERA for {} {}'.format(su, ro))
@@ -51,24 +48,20 @@ for itro, ro in enumerate(ROIS):
         # Load conditions
         nii_hori = nb.load(NII_HOR)
         data_hori = np.asarray(nii_hori.dataobj)
-
-        # Load conditions
         nii_ver = nb.load(NII_VER)
         data_ver = np.asarray(nii_ver.dataobj)
+
         print('Trial {}'.format(np.shape(data_hori[:, 0])))
 
         # Extract clusters per ROI
         if ro == 'V1':
             hor_hor[it, :] = data_hori[:, 0]
             ver_hor[it, :] = data_hori[:, 1]
-
             hor_ver[it, :] = data_ver[:, 0]
             ver_ver[it, :] = data_ver[:, 1]
-
         else:
             hor_hor[it, :] = data_hori[:, 2]
             ver_hor[it, :] = data_hori[:, 3]
-
             hor_ver[it, :] = data_ver[:, 2]
             ver_ver[it, :] = data_ver[:, 3]
 
@@ -76,30 +69,65 @@ for itro, ro in enumerate(ROIS):
     dominant = (hor_hor + ver_ver) / 2
     not_dominant = (ver_hor + hor_ver) / 2
 
-    # Plot average
-    # DUR_MAX = 5
-    axes[itro].errorbar(x2[::2], np.nanmean(dominant[:, 0:DUR_MIN+1], axis=0), sem(dominant[:, 0:DUR_MIN+1], axis=0), color=COLOR_AREA[itro], linewidth=2)
-    axes[itro].errorbar(x2[::2], np.nanmean(not_dominant[:, 0:DUR_MIN+1], axis=0), sem(not_dominant[:, 0:DUR_MIN+1], axis=0), color='black', linewidth=2)
-    axes[itro].set_xticks(x2[::2])
-    axes[itro].set_xticklabels(x2[::2])
-    axes[itro].set_ylabel("% fMRI (a.u.)", fontsize=20)
-    axes[itro].set_xlabel("Time [s]", fontsize=20)
-    axes[itro].axhline(y=0, linestyle='--', color='black', linewidth=0.5)
-    axes[itro].set_title('{}'.format(ro), fontsize=20)
-    axes[itro].set_ylim([-3, 3])
-    axes[itro].tick_params(axis='x', labelsize=20)
-    axes[itro].tick_params(axis='y', labelsize=20)
+    # Store data for statistical comparison
+    dominant_data[ro] = dominant[:, 0:DUR_MIN+1]
+    not_dominant_data[ro] = not_dominant[:, 0:DUR_MIN+1]
 
-    # if TASK == 'phy':
+# Test dominant vs not dominant time course similarity
+# For V1
+correlations = np.zeros(len(SUBJ))
 
-    #     axes[itro].set_ylim([-3, 3])
+for it in range(0, len(SUBJ)):
 
-    # else:
-    #     axes[itro].set_ylim([-0.4, 0.8])
+    ts1 = dominant_data['V1'][it, :]
+    ts2 = not_dominant_data['V1'][it, :]
+    n = len(ts1)
 
-# plt.suptitle('Event-related averages for {} condition'.format(TASK), fontsize=14)
-plt.tight_layout()
-fig.savefig(os.path.join(OUTDIR, 'testROIwise_Figure_ERA_group_average_V1_hMT_dur_{}_{}_{}_dominant_notDominant'.format(DUR_MIN, DUR_MAX, STAT)), bbox_inches='tight')
-# fig.savefig(os.path.join(OUTDIR, 'ROIwise_Figure_ERA_group_average_V1_hMT_dur_{}_{}_{}_dominant_notDominant.svg'.format(DUR_MIN, DUR_MAX, STAT)), format='svg', bbox_inches='tight')
+    r, _ = spearmanr(ts1, ts2)            # Compute correlation
 
-print("\nFinished.")
+    z = 0.5 * np.log((1 + r) / (1 - r))  # Fisher's Z transformation
+    correlations[it] = r
+
+# Test for significance
+# Perform Wilcoxon signed-rank test to check if median correlation differs from zero
+stat, p_value = wilcoxon(correlations)
+print(correlations)
+print(p_value)
+
+# For hMT
+correlations = np.zeros(len(SUBJ))
+
+for it in range(0, len(SUBJ)):
+
+    ts1 = dominant_data['hMT'][it, :]
+    ts2 = not_dominant_data['hMT'][it, :]
+
+    r, _ = spearmanr(ts1, ts2)            # Compute correlation
+
+    z = 0.5 * np.log((1 + r) / (1 - r))  # Fisher's Z transformation
+    correlations[it] = r
+
+# Test for significance
+# Perform Wilcoxon signed-rank test to check if median correlation differs from zero
+stat, p_value = wilcoxon(correlations)
+print(correlations)
+print(p_value)
+
+# For V1 vs hMT
+correlations = np.zeros(len(SUBJ))
+
+for it in range(0, len(SUBJ)):
+
+    ts1 = (dominant_data['V1'][it, :] + not_dominant_data['V1'][it, :]) /2
+    ts2 = (dominant_data['hMT'][it, :] + not_dominant_data['hMT'][it, :]) /2
+
+    r, _ = spearmanr(ts1, ts2)            # Compute correlation
+
+    z = 0.5 * np.log((1 + r) / (1 - r))  # Fisher's Z transformation
+    correlations[it] = r
+
+# Test for significance
+# Perform Wilcoxon signed-rank test to check if median correlation differs from zero
+stat, p_value = wilcoxon(correlations)
+print(correlations)
+print(p_value)

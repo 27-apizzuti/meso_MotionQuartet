@@ -1,24 +1,18 @@
-"""
-Get 2D histogram for each file
-Get overlayed layer profile across contrasts
-Input: metric file (from LN2_LAYERS), t-value map
-"""
 import numpy as np
 import nibabel as nb
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 import os
 from glob import glob
-from scipy.stats import sem
+from scipy.stats import sem, ttest_rel
+from statsmodels.stats.multitest import fdrcorrection
 from my_layer_profiles import *
-from pprint import pprint
 from matplotlib.ticker import FormatStrFormatter
 
 # -------------------------------------------------------------------------
 # Define input
 # -------------------------------------------------------------------------
-STUDY_PATH = "/mnt/d/Exp-MotionQuartet/MRI_MQ/BOLD"
-SUBJ = ['sub-03', 'sub-04', 'sub-06', 'sub-07', 'sub-08', 'sub-09', 'sub-10']
+STUDY_PATH = "D:\\Exp-MotionQuartet\\MRI_MQ\\BOLD"
+SUBJ = ['sub-01', 'sub-03', 'sub-04', 'sub-06', 'sub-07', 'sub-08', 'sub-09', 'sub-10']
 HEMIS = ['LH', 'RH']
 N_LAYERS = 3
 DPI = 300
@@ -35,6 +29,7 @@ for itro, ro in enumerate(ROI):
     # Create output structure
     for it_clu, clust in enumerate(CLUSTERS):
         betas_preds = np.zeros([N_LAYERS, len(SUBJ)*len(HEMIS), 2])
+        p_values = np.zeros(N_LAYERS)
         i = 0
 
         for su in SUBJ:
@@ -47,37 +42,41 @@ for itro, ro in enumerate(ROI):
                 betas_phy = np.load(os.path.join(PATH_IN, "{}_depth_vs_Phy_{}_{}_phy_clusters_BETAS_PSC_active_suppression.npy".format(su, hem, ro)), allow_pickle=True).item()
                 betas_amb = np.load(os.path.join(PATH_IN, "{}_depth_vs_Amb_{}_{}_phy_clusters_BETAS_PSC_active_suppression.npy".format(su, hem, ro)), allow_pickle=True).item()
 
-
-                #// Prepare data
+                # Prepare data
                 betas_phy_mo =  (betas_phy["{}_clust".format(clust)]["{}".format(clust)]["betas"])
                 betas_amb_mo =  (betas_amb["{}_clust".format(clust)]["{}".format(clust)]["betas"] )
-
 
                 metric = betas_phy["{}_clust".format(clust)]["Horizontal"]["Metric"]
                 layers = my_layer_profiles(metric, N_LAYERS)
                 layers_data = np.unique(layers)
 
                 for it in layers_data:
-
                     it = int(it)
                     idx = (layers==it).astype(bool)
 
-                    #// Trovo i voxels nei layers
+                    # Calculate betas for each layer
                     betas_preds[it-1, i, 0] = np.nanmean(betas_phy_mo[idx])
                     betas_preds[it-1, i, 1] = np.nanmean(betas_amb_mo[idx])
 
-                i = i +1
+                i = i + 1
 
-        #//Plotting magic here
-        phy_lay = betas_preds[:,:,0]
-        amb_lay = betas_preds[:,:,1]
-
+        # Perform paired t-test across layers (deep vs. superficial layers)
+        phy_lay = betas_preds[:, :, 0]
+        amb_lay = betas_preds[:, :, 1]
         beta_diff = phy_lay - amb_lay
+        # Difference 
 
+        for layer in range(N_LAYERS):
+            _, p_values[layer] = ttest_rel(phy_lay[layer, :], amb_lay[layer, :])
+
+        # Apply FDR correction
+        rejected, corrected_p_values = fdrcorrection(p_values, alpha=0.05)
+
+        # Plotting
         if clust == 'Horizontal':
             col = 'red'
         else:
-             col = 'blue'
+            col = 'blue'
 
         axs[0, it_clu].errorbar(x, np.mean(phy_lay, axis=1), yerr=sem(phy_lay, axis=1), linewidth=2, color=col)
         axs[0, it_clu].errorbar(x, np.mean(amb_lay, axis=1), yerr=sem(amb_lay, axis=1), linewidth=2, linestyle='dotted', color=col)
@@ -90,7 +89,6 @@ for itro, ro in enumerate(ROI):
         # Adjustments
         axs[0, it_clu].tick_params(axis='x', labelsize=20)
         axs[0, it_clu].tick_params(axis='y', labelsize=20)
-
         axs[1, it_clu].tick_params(axis='x', labelsize=20)
         axs[1, it_clu].tick_params(axis='y', labelsize=20)
         axs[0, it_clu].yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
@@ -110,8 +108,11 @@ for itro, ro in enumerate(ROI):
         axs[0, it_clu].set_ylabel("Percent signal change", fontsize=20)
         axs[1, it_clu].set_ylabel("Percent signal change", fontsize=20)
 
+        # Add FDR correction info to title
+        axs[1, it_clu].set_title(f"FDR corrected p-values: {corrected_p_values}", fontsize=16)
 
         fig.suptitle('Group average layer profiles {} '.format(ro), fontsize=22, x=0.5, y=1.05)
         plt.tight_layout()
-    fig.savefig(os.path.join(PATH_OUT, 'testGroup_average_{}_bilteral_{}_layers_{}_betas_PSC'.format(su, ro, N_LAYERS)), bbox_inches='tight')
-    fig.savefig(os.path.join(PATH_OUT, 'testGroup_average_{}_bilteral_{}_layers_{}_betas_PSC.svg'.format(su, ro, N_LAYERS)), format='svg', bbox_inches='tight')
+
+    # fig.savefig(os.path.join(PATH_OUT, 'Group_average_{}_bilteral_{}_layers_{}_betas_PSC.png'.format(ro, N_LAYERS)), bbox_inches='tight')
+    # fig.savefig(os.path.join(PATH_OUT, 'Group_average_{}_bilteral_{}_layers_{}_betas_PSC.svg'.format(ro, N_LAYERS)), format='svg', bbox_inches='tight')

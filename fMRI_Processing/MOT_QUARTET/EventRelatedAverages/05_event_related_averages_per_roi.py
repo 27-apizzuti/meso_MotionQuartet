@@ -9,9 +9,9 @@ import nibabel as nb
 
 # =============================================================================
 SUBJ = SUBJ = ['sub-01', 'sub-03', 'sub-04', 'sub-06', 'sub-07', 'sub-09', 'sub-08', 'sub-10']
-DUR_MIN = 5
+DUR_MIN = 4
 DUR_MAX = 100
-TASK = 'amb'
+TASK = 'phy'
 CONDITION = [2, 3]
 CONDITION_LABELS = ['Horizontal', 'Vertical']
 # =============================================================================
@@ -108,7 +108,7 @@ for su in SUBJ:
                 dur = data_dur[idx5][0]
                 temp = data[idx5]
                 # print(temp.shape)
-                
+
                 # temp = np.reshape(temp, [dur, nr_vox_roi])
                 # print(temp.shape)
                 # print(era_values[0:dur, j-1].shape)
@@ -116,7 +116,7 @@ for su in SUBJ:
                 era_counts[0:dur, j] += 1
 
         era_mean = era_values / era_counts
-        
+
         # -----------------------------------------------------------------------------
         # Save
         filename = os.path.basename(NII_TC)
