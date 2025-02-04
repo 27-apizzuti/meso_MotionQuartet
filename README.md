@@ -1,4 +1,4 @@
-# Bistable Motion Quartet fMRI project at 7T
+# Bistable Motion Quartet fMRI project at 7T - mesoscale, layer-fMRI 
 This repository contains the analysis pipeline used for 7T fMRI for the paper "In the brain of the beholder: bi-stable motion reveals mesoscopic-scale feedback modulation in V1".
 
 # Core dependences
